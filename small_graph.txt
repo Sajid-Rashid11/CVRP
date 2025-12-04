@@ -1,0 +1,18 @@
+NUM_NODES: 6
+VEHICLE_CAPACITY: 50
+
+COORDINATES:
+0, 0     
+10, 10    
+20, 15    
+15, 5     
+25, 20    
+5, 20  
+
+DEMANDS:
+0    
+15    
+20    
+12    
+18    
+25
