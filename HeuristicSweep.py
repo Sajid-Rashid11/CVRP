@@ -1,21 +1,16 @@
 import math
+import time
+
+from Test import parse_file
+from Helper import create_random_distance_matrix, route_distance
 
 # -------------------------------------------------------------
-# Helper: distance of a route (depot -> route nodes -> depot)
+# Runs the heuristic sweep
 # -------------------------------------------------------------
-def route_distance(route, depot_index, dist_matrix):
-    total = 0.0
-    prev = depot_index
-    for node in route:
-        total += dist_matrix[prev][node]
-        prev = node
-    total += dist_matrix[prev][depot_index]
-    return total
-
 def heuristic_sweep(
     no_of_customers,
     weights,
-    coords,
+    coordinates,
     vehicle_capacity,
     dist_matrix,
     depot_index=0
@@ -29,14 +24,14 @@ def heuristic_sweep(
     Parameters
     ----------
     no_of_customers : int
-        Number of customers (nodes 1..no_of_customers, depot is node 0)
+        Number of customers including the depot (nodes 1..no_of_customers, depot is node 0)
 
     weights : list[float]
         weights[i] = total weight of all orders for customer i
         weights[0] must be 0 (depot)
 
-    coords : list[(float, float)]
-        coords[i] = (x, y) of node i, including depot at index 0
+    coordinates : list[(float, float)]
+        coordinates[i] = (x, y) of node i, including depot at index 0
         Used for computing polar angles for sweep
 
     vehicle_capacity : float
@@ -44,7 +39,7 @@ def heuristic_sweep(
 
     dist_matrix : list[list[float]]
         dist_matrix[i][j] = distance from node i to node j,
-        for i, j in 0..n_customers
+        for i, j in 0..no_of_customers
 
     depot_index : int, optional
         Index of the depot (default 0)
@@ -59,7 +54,7 @@ def heuristic_sweep(
         {
             "routes": [[customer_ids...], ...],    # one route per vehicle
             "route_loads": [load_per_route, ...],  # total weight on each route
-            "route_distances": [dist_per_route, ...],
+            "route_distances": [distance_per_route, ...],
             "total_distance": float,
             "total_travel_time": float,
             "num_vehicles": int
@@ -71,30 +66,26 @@ def heuristic_sweep(
     - The number of vehicles is minimized by greedily filling each route in angular order until capacity is reached
     """
 
-    # -----------------------------
-    # Basic sanity checks
-    # -----------------------------
-    if len(weights) <= no_of_customers or len(coords) <= no_of_customers:
-        raise ValueError("weights and coords must include depot[0] + customers[1..n_customers].")
+    # Basic sanity checks to see if weights, cordinates and distances are present for all nodes
+    if len(weights) != no_of_customers or len(coordinates) != no_of_customers:
+        raise ValueError("weights and coordinates must include depot[0] + customers[1..n_customers].")
 
-    if len(dist_matrix) <= no_of_customers or any(len(row) <= no_of_customers for row in dist_matrix):
-        raise ValueError("dist_matrix must be (n_customers+1) x (n_customers+1).")
+    if len(dist_matrix) != no_of_customers or any(len(row) != no_of_customers for row in dist_matrix):
+        raise ValueError("dist_matrix must be (no_of_customers) x (no_of_customers).")
 
     # Each customer's weight must fit on at least one vehicle
-    for i in range(1, no_of_customers + 1):
+    for i in range(1, no_of_customers):
         if weights[i] > vehicle_capacity:
             raise ValueError(
                 f"Customer {i} has weight {weights[i]} which exceeds vehicle capacity {vehicle_capacity}."
             )
 
-    x0, y0 = coords[depot_index]
+    x0, y0 = coordinates[depot_index]
 
-    # -------------------------------------------------------------
     # Compute polar angle and radius for each customer
-    # -------------------------------------------------------------
     polar_angles = []
-    for i in range(1, no_of_customers + 1):
-        x, y = coords[i]
+    for i in range(1, no_of_customers):
+        x, y = coordinates[i]
         dx = x - x0
         dy = y - y0
         angle = math.atan2(dy, dx)
@@ -103,15 +94,12 @@ def heuristic_sweep(
 
         polar_angles.append((i, angle, radius, w))
 
-    # -------------------------------------------------------------
     # Sort by angle then radius (the sweep order)
-    # -------------------------------------------------------------
+
     polar_angles.sort(key=lambda t: (t[1], t[2]))
 
-    # -------------------------------------------------------------
     # 3. Create capacity-limited routes in angle order
     #    → this implicitly determines the number of vehicles used
-    # -------------------------------------------------------------
     routes = []
     current_route = []
     current_load = 0.0
@@ -147,45 +135,36 @@ def heuristic_sweep(
 
 def main():
     print("Solving CVRP using Heuristic Sweep Approach")
-    # depot + 4 customers
-    coords = [
-        (0.0, 0.0),  # depot (0)
-        (1.0, 0.0),  # customer 1
-        (0.0, 1.0),  # customer 2
-        (-1.0, 0.0),  # customer 3
-        (0.0, -1.0)  # customer 4
-    ]
+    test_files = ["small_graph.txt", "med_graph.txt", "large_graph.txt"]
+    for file in test_files:
+        print(f"Solving for file: {file}")
+        no_of_customers, capacity, coordinates, weights = parse_file(file)
+        print(f"No of customers = {no_of_customers}")
+        print(f"Vehicle capacity = {capacity}")
+        print(f"Coordinates = {coordinates}")
+        print(f"Demands = {weights}")
+        dist_matrix = create_random_distance_matrix(coordinates)
 
-    # total weight of orders per customer (depot weight = 0)
-    weights = [0, 3, 4, 5, 2]
-    n_customers = 4
-    vehicle_capacity = 6
+        start_time = time.perf_counter()
+        result = heuristic_sweep(
+            no_of_customers=no_of_customers,
+            weights=weights,
+            coordinates=coordinates,
+            vehicle_capacity=capacity,
+            dist_matrix=dist_matrix,
+            depot_index=0
+            # average_speed=40.0  # e.g., 40 distance units per hour
+        )
+        end_time = time.perf_counter()
+        elapsed_time = (end_time - start_time) * 1000.0
 
-    # distance matrix (Euclidean)
-    N = n_customers + 1
-    dist_matrix = [[0.0] * N for _ in range(N)]
-    for i in range(N):
-        for j in range(N):
-            xi, yi = coords[i]
-            xj, yj = coords[j]
-            dist_matrix[i][j] = math.hypot(xi - xj, yi - yj)
-
-    result = heuristic_sweep(
-        no_of_customers=n_customers,
-        weights=weights,
-        coords=coords,
-        vehicle_capacity=vehicle_capacity,
-        dist_matrix=dist_matrix,
-        depot_index=0,
-        # average_speed=40.0  # e.g., 40 distance units per hour
-    )
-
-    print("Number of vehicles used:", result["num_vehicles"])
-    print("Routes:", result["routes"])
-    print("Route loads:", result["route_loads"])
-    print("Route distances:", result["route_distances"])
-    print("Total distance:", result["total_distance"])
-    # print("Total travel time:", result["total_travel_time"])
+        print("Number of vehicles used:", result["num_vehicles"])
+        print("Routes:", result["routes"])
+        print("Route loads:", result["route_loads"])
+        print("Route distances:", result["route_distances"])
+        print("Total distance:", result["total_distance"])
+        print(f"Time taken to process = {elapsed_time} milliseconds\n")
+        # print("Total travel time:", result["total_travel_time"])
 
 if __name__ == "__main__":
     main()
