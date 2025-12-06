@@ -2,7 +2,7 @@ import numpy as np
 import random
 
 MAX_LIMIT = 50.0
-MIN_LIMIT = 0.10
+MIN_LIMIT = 10.0
 
 # ------------------------------------------------------------------
 # Generates distance matrix randomly in range MIN_LIMIT - MAX_LIMIT
@@ -12,7 +12,7 @@ def create_random_distance_matrix(coordinates):
     distance_matrix = np.zeros((no_of_nodes, no_of_nodes))
 
     for i in range(no_of_nodes):
-        for j in range(no_of_nodes):
+        for j in range(i, no_of_nodes): # as we are using symmetric distance we can only run the loop by dividing the matrix diagonally
             if i != j:
                 rand_dist = random.uniform(MIN_LIMIT, MAX_LIMIT)
                 # we are using symmetric distance
