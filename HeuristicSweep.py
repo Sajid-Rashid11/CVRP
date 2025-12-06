@@ -1,8 +1,7 @@
 import math
 import time
-
 from Test import parse_file
-from Helper import create_random_distance_matrix, route_distance
+from Helper import create_random_distance_matrix, route_distance, print_results
 
 # -------------------------------------------------------------
 # Runs the heuristic sweep
@@ -137,18 +136,18 @@ def main():
     print("Solving CVRP using Heuristic Sweep Approach")
     test_files = ["small_graph.txt", "med_graph.txt", "large_graph.txt"]
     for file in test_files:
-        print(f"Solving for file: {file}")
-        no_of_customers, capacity, coordinates, weights = parse_file(file)
-        print(f"No of customers = {no_of_customers}")
+        print(f"\nSolving for file: {file}")
+        no_of_customers, capacity, coordinates, demands = parse_file(file)
+        print(f"No of customers = {no_of_customers - 1}")
         print(f"Vehicle capacity = {capacity}")
         print(f"Coordinates = {coordinates}")
-        print(f"Demands = {weights}")
+        print(f"Demands = {demands}")
         dist_matrix = create_random_distance_matrix(coordinates)
 
         start_time = time.perf_counter()
         result = heuristic_sweep(
             no_of_customers=no_of_customers,
-            weights=weights,
+            weights=demands,
             coordinates=coordinates,
             vehicle_capacity=capacity,
             dist_matrix=dist_matrix,
@@ -157,13 +156,7 @@ def main():
         )
         end_time = time.perf_counter()
         elapsed_time = (end_time - start_time) * 1000.0
-
-        print("Number of vehicles used:", result["num_vehicles"])
-        print("Routes:", result["routes"])
-        print("Route loads:", result["route_loads"])
-        print("Route distances:", result["route_distances"])
-        print("Total distance:", result["total_distance"])
-        print(f"Time taken to process = {elapsed_time} milliseconds\n")
+        print_results(result["num_vehicles"], result["total_distance"], elapsed_time, result["routes"], demands, dist_matrix, capacity)
         # print("Total travel time:", result["total_travel_time"])
 
 if __name__ == "__main__":
